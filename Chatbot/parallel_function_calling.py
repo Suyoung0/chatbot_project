@@ -1,3 +1,5 @@
+# [parallel_function_calling.py]
+
 from common import client, model, makeup_response 
 import json
 import requests
@@ -119,7 +121,6 @@ tools = [
             }
         ]
 
-
 class FunctionCalling:
     
     def __init__(self, model):
@@ -130,47 +131,27 @@ class FunctionCalling:
         }
         self.model = model
 
-
+    # analyze 메서드는 더 이상 application.py에서 호출되지 않습니다.
+    '''
     def analyze(self, user_message, tools):
-        try:
+        # 이 코드는 이제 사용되지 않음
+    '''
 
-            '''
-            response = client.responses.create(    # client.chat.completions.create(
-                    model=model.basic,
-                    input=[{"role": "user", "content": user_message}],    #  messages
-                    #tools=tools,
-                    #tool_choice="auto" 
-                    )  #.model_dump()
-            pprint(("pp_response.model_dump() =>", response.model_dump()))
-            message =  response.choices[0].message #response['output'][1]['content'] # [0]['text']    # 
-            '''
-            response = client.chat.completions.create(
-                    model=model.basic,
-                    messages=[{"role": "user", "content": user_message}],  
-                    tools=tools, 
-                    tool_choice="auto"
-                )
-            pprint(("pp_response.model_dump() =>", response.model_dump()))
-            message = response.choices[0].message
-            message_dict = message.model_dump() 
-            pprint(("message_dict=>", message_dict))           
-            return message, message_dict
-        except Exception as e:
-            print("Error occurred(analyze):",e)
-            return makeup_response("[analyze 오류입니다]")
-        
-
-    def run(self, analyzed, analyzed_dict, context):
+    # run 메서드의 시그니처를 수정하였습니다.
+    # analyzed와 analyzed_dict 대신, analyzed_dict 하나만 받도록 변경하였습니다.
+    def run(self, analyzed_dict, context):
         print("pp call ----")
-        context.append(analyzed)
+        
+        # Pydantic 객체 대신 dict를 context에 추가합니다.
+        context.append(analyzed_dict)
+        
         tool_calls = analyzed_dict['tool_calls']
         for tool_call in tool_calls:
             function = tool_call["function"]
             func_name = function["name"] 
-            func_to_call = self.available_functions[func_name]        
+            func_to_call = self.available_functions[func_name]
             try:
                 func_args = json.loads(function["arguments"])
-                # 챗GPT가 알려주는 매개변수명과 값을 입력값으로하여 실제 함수를 호출한다.
                 func_response = func_to_call(**func_args)
                 context.append({
                     "tool_call_id": tool_call["id"],
@@ -181,6 +162,6 @@ class FunctionCalling:
             except Exception as e:
                 print("Error occurred(run):",e)
                 return makeup_response("[run 오류입니다]")
-    
-        return client.chat.completions.create(model=self.model, messages=context).model_dump()  #messages=context
-        #return client.responses.create(model=self.model, input=context).model_dump()  # client.chat.completions.create.model_dump()  
+        
+        # 함수 실행 결과를 토대로 API 호출합니다.
+        return client.chat.completions.create(model=self.model, messages=context).model_dump()
